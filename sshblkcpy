@@ -10,12 +10,12 @@ bs=$(( 1024 * 1024 ))
 
 function usage() {
 	cat >&2 <<-EOF
-    Usage: $(basename "$0") [options] statefile infile desthost outfile
+	Usage: $(basename "$0") [options] statefile infile desthost outfile
 
-    Available options:
-        -c  chunk size (default: $chunk)
-        -b  block size (default: $bs)
-EOF
+	Available options:
+	    -c  chunk size (default: $chunk)
+	    -b  block size (default: $bs)
+	EOF
 	exit 1
 }
 
