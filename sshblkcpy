@@ -1,0 +1,93 @@
+#!/bin/bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+# Set defaults
+chunk=$(( 10 * 1024 * 1024 * 1024 ))
+bs=$(( 1024 * 1024 ))
+
+function usage() {
+	cat >&2 <<-EOF
+    Usage: $(basename "$0") [options] statefile infile desthost outfile
+
+    Available options:
+        -c  chunk size (default: $chunk)
+        -b  block size (default: $bs)
+EOF
+	exit 1
+}
+
+while getopts "hc:" arg; do
+    case $arg in
+        c)
+            chunk=$OPTARG
+            echo Using chunk size of $chunk
+            ;;
+        b)
+            bs=$OPTARG
+            echo Using block size of $chunk
+            ;;
+        h)
+            usage
+            ;;
+        ?)
+            usage
+            ;;
+    esac
+done
+
+shift $((OPTIND - 1))
+if [ $# -lt 4 ]; then
+    usage
+fi
+
+statefile="$1"
+infile="$2"
+desthost="$3"
+outfile="$4"
+
+if [[ $chunk < $bs ]]; then
+    echo 2>&1 "Error: Chunk size must not be less than block size ($bs)"
+    exit 1
+fi
+
+if [[ $(( chunk % bs )) != 0 ]]; then
+    echo 2>&1 "Warning: Chunk size is not a multiple of block size"
+fi
+
+# $state holds number of bytes already copied
+if [ -f "$statefile" ]; then
+	state=$(cat "$statefile")
+else
+	state=0
+fi
+
+if [ -b "$infile" ]; then
+	echo "Input is block device, using blockdev(1) to determine total size"
+	total=$(blockdev --getsize64 "$infile")
+else
+	echo "Input is file, using stat(1) to determine total size"
+	total=$(stat -c '%s' "$infile")
+fi
+
+numchunks=$(( (total - 1) / chunk + 1 ))
+
+echo "Copying a total of $total bytes in $numchunks chunks of $chunk bytes"
+echo "$state bytes copied so far, resuming"
+
+trap exit 1 SIGINT SIGTERM
+
+while [ "$state" -lt "$total" ]; do
+	# Start offset for the next copy
+	offset=$(( ( ( state / chunk ) * chunk ) / bs ))
+	echo "Copying block $(( state / chunk + 1)) of $numchunks..."
+    if (set -x; dd if="$infile" bs="$bs" skip="$offset" count="$(( chunk / bs ))" status=progress) \
+        | ssh "$desthost" dd of="$outfile" bs="$bs" seek="$offset" status=none; then
+		state=$(( ( ( state / chunk ) + 1 ) * chunk ))
+		echo "$state" >"$statefile"
+		sync --file-system "$statefile"
+	fi
+done
+echo "Finished copying!"
