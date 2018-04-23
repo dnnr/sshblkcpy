@@ -99,11 +99,9 @@ while [ "$state" -lt "$total" ]; do
     ssh "$desthost" "set -o pipefail; socat -d TCP-LISTEN:$port,reuseaddr - | dd of=$outfile bs=$bs seek=$offset status=none" &
     recvpid=$!
 
-    sleep 1
-
     # Spawn sender
     (set -x; dd if="$infile" bs="$bs" skip="$offset" count="$(( chunk / bs ))" status=progress \
-        | socat -d - "TCP:$xferaddr:$port") &
+        | socat -d - "TCP:$xferaddr:$port,retry=3") &
     senderpid=$!
 
     # Wait for processes (if one of them fails, errexit will kill the script)
