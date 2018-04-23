@@ -15,7 +15,7 @@ function usage() {
 	Available options:
 	    -c BYTES    chunk size (default: $chunk)
 	    -b BYTES    block size (default: $bs)
-	    -i ADDR     remote address for netcat
+	    -i ADDR     remote address for transfer
 	EOF
 	exit 1
 }
@@ -31,8 +31,8 @@ while getopts "hc:b:i:" arg; do
             echo "Using block size of $bs"
             ;;
         i)
-            netcataddr="$OPTARG"
-            echo "Using different remote host for netcat: $netcataddr"
+            xferaddr="$OPTARG"
+            echo "Using different remote host for transfer: $xferaddr"
             ;;
         h)
             usage
@@ -63,8 +63,8 @@ if [[ $(( chunk % bs )) != 0 ]]; then
     echo 2>&1 "Warning: Chunk size is not a multiple of block size"
 fi
 
-if [[ ! -v netcataddr ]]; then
-    netcataddr="$desthost"
+if [[ ! -v xferaddr ]]; then
+    xferaddr="$desthost"
 fi
 
 # $state holds number of bytes already copied
@@ -96,14 +96,14 @@ while [ "$state" -lt "$total" ]; do
 	echo "Copying block $(( state / chunk + 1)) of $numchunks..."
 
     # Spawn remote receiver:
-    ssh "$desthost" nc -q0 -l -p "$port" \| dd of="$outfile" bs="$bs" seek="$offset" status=none &
+    ssh "$desthost" "set -o pipefail; socat -d TCP-LISTEN:$port,reuseaddr - | dd of=$outfile bs=$bs seek=$offset status=none" &
     recvpid=$!
 
     sleep 1
 
     # Spawn sender
     (set -x; dd if="$infile" bs="$bs" skip="$offset" count="$(( chunk / bs ))" status=progress \
-        | nc -q0 "$netcataddr" "$port") &
+        | socat -d - "TCP:$xferaddr:$port") &
     senderpid=$!
 
     # Wait for processes (if one of them fails, errexit will kill the script)
