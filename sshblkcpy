@@ -10,7 +10,7 @@ bs=$(( 1024 * 1024 ))
 
 function usage() {
 	cat >&2 <<-EOF
-	Usage: $(basename "$0") [options] statefile infile desthost outfile
+	Usage: $(basename "$0") [options] statefile infile desthost outfile port
 
 	Available options:
 	    -c  chunk size (default: $chunk)
@@ -39,7 +39,7 @@ while getopts "hc:b:" arg; do
 done
 
 shift $((OPTIND - 1))
-if [ $# -lt 4 ]; then
+if [ $# -lt 5 ]; then
     usage
 fi
 
@@ -47,6 +47,7 @@ statefile="$1"
 infile="$2"
 desthost="$3"
 outfile="$4"
+port="$5"
 
 if [[ $chunk -lt $bs ]]; then
     echo 2>&1 "Error: Chunk size must not be less than block size ($bs)"
@@ -77,17 +78,32 @@ numchunks=$(( (total - 1) / chunk + 1 ))
 echo "Copying a total of $total bytes in $numchunks chunks of $chunk bytes"
 echo "$state bytes copied so far, resuming"
 
-trap exit 1 SIGINT SIGTERM
+# Kill all descendents before exiting
+trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
 while [ "$state" -lt "$total" ]; do
 	# Start offset for the next copy
 	offset=$(( ( ( state / chunk ) * chunk ) / bs ))
 	echo "Copying block $(( state / chunk + 1)) of $numchunks..."
-    if (set -x; dd if="$infile" bs="$bs" skip="$offset" count="$(( chunk / bs ))" status=progress) \
-        | ssh "$desthost" dd of="$outfile" bs="$bs" seek="$offset" status=none; then
-		state=$(( ( ( state / chunk ) + 1 ) * chunk ))
-		echo "$state" >"$statefile"
-		sync --file-system "$statefile"
-	fi
+
+    # Spawn remote receiver:
+    ssh "$desthost" nc -N -l -p "$port" \| dd of="$outfile" bs="$bs" seek="$offset" status=none &
+    recvpid=$!
+
+    sleep 1
+
+    # Spawn sender
+    (set -x; dd if="$infile" bs="$bs" skip="$offset" count="$(( chunk / bs ))" status=progress \
+        | nc "$desthost" "$port") &
+    senderpid=$!
+
+    # Wait for processes (if one of them fails, errexit will kill the script)
+    wait $senderpid
+    wait $recvpid
+
+    # Update statefile
+    state=$(( ( ( state / chunk ) + 1 ) * chunk ))
+    echo "$state" >"$statefile"
+    sync --file-system "$statefile"
 done
 echo "Finished copying!"
