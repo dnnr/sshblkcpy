@@ -23,11 +23,11 @@ while getopts "hc:" arg; do
     case $arg in
         c)
             chunk=$OPTARG
-            echo Using chunk size of $chunk
+            echo "Using chunk size of $chunk"
             ;;
         b)
             bs=$OPTARG
-            echo Using block size of $chunk
+            echo "Using block size of $chunk"
             ;;
         h)
             usage
