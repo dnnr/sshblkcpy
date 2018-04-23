@@ -27,7 +27,7 @@ while getopts "hc:b:" arg; do
             ;;
         b)
             bs=$OPTARG
-            echo "Using block size of $chunk"
+            echo "Using block size of $bs"
             ;;
         h)
             usage
