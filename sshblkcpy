@@ -96,12 +96,12 @@ while [ "$state" -lt "$total" ]; do
 	echo "Copying block $(( state / chunk + 1)) of $numchunks..."
 
     # Spawn remote receiver:
-    ssh "$desthost" "set -o pipefail; socat -d TCP-LISTEN:$port,reuseaddr - | dd of=$outfile bs=$bs seek=$offset status=none" &
+    ssh "$desthost" "set -o pipefail; socat -d -u TCP-LISTEN:$port,reuseaddr - | dd of=$outfile bs=$bs seek=$offset status=none" &
     recvpid=$!
 
     # Spawn sender
     (set -x; dd if="$infile" bs="$bs" skip="$offset" count="$(( chunk / bs ))" status=progress \
-        | socat -d - "TCP:$xferaddr:$port,retry=3") &
+        | socat -d -u - "TCP:$xferaddr:$port,retry=3") &
     senderpid=$!
 
     # Wait for processes (if one of them fails, errexit will kill the script)
