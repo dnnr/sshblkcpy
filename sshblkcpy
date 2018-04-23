@@ -22,11 +22,11 @@ function usage() {
 while getopts "hc:b:" arg; do
     case $arg in
         c)
-            chunk=$OPTARG
+            chunk="$OPTARG"
             echo "Using chunk size of $chunk"
             ;;
         b)
-            bs=$OPTARG
+            bs="$OPTARG"
             echo "Using block size of $bs"
             ;;
         h)
