@@ -114,5 +114,6 @@ while [ "$state" -lt "$total" ]; do
     state=$(( ( ( state / chunk ) + 1 ) * chunk ))
     echo "$state" >"$statefile"
     sync --file-system "$statefile"
+    echo "Updated statefile: $state"
 done
 echo "Finished copying!"
