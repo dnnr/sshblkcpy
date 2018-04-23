@@ -96,14 +96,14 @@ while [ "$state" -lt "$total" ]; do
 	echo "Copying block $(( state / chunk + 1)) of $numchunks..."
 
     # Spawn remote receiver:
-    ssh "$desthost" nc -l -p "$port" \| dd of="$outfile" bs="$bs" seek="$offset" status=none &
+    ssh "$desthost" nc -q0 -l -p "$port" \| dd of="$outfile" bs="$bs" seek="$offset" status=none &
     recvpid=$!
 
     sleep 1
 
     # Spawn sender
     (set -x; dd if="$infile" bs="$bs" skip="$offset" count="$(( chunk / bs ))" status=progress \
-        | nc "$netcataddr" "$port") &
+        | nc -q0 "$netcataddr" "$port") &
     senderpid=$!
 
     # Wait for processes (if one of them fails, errexit will kill the script)
