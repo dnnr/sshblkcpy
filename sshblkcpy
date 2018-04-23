@@ -19,7 +19,7 @@ function usage() {
 	exit 1
 }
 
-while getopts "hc:" arg; do
+while getopts "hc:b:" arg; do
     case $arg in
         c)
             chunk=$OPTARG
