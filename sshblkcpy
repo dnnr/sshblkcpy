@@ -96,7 +96,7 @@ while [ "$state" -lt "$total" ]; do
 	echo "Copying block $(( state / chunk + 1)) of $numchunks..."
 
     # Spawn remote receiver:
-    ssh "$desthost" nc -N -l -p "$port" \| dd of="$outfile" bs="$bs" seek="$offset" status=none &
+    ssh "$desthost" nc -l -p "$port" \| dd of="$outfile" bs="$bs" seek="$offset" status=none &
     recvpid=$!
 
     sleep 1
