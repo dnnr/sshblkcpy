@@ -13,13 +13,14 @@ function usage() {
 	Usage: $(basename "$0") [options] statefile infile desthost outfile port
 
 	Available options:
-	    -c  chunk size (default: $chunk)
-	    -b  block size (default: $bs)
+	    -c BYTES    chunk size (default: $chunk)
+	    -b BYTES    block size (default: $bs)
+	    -i ADDR     remote address for netcat
 	EOF
 	exit 1
 }
 
-while getopts "hc:b:" arg; do
+while getopts "hc:b:i:" arg; do
     case $arg in
         c)
             chunk="$OPTARG"
@@ -28,6 +29,10 @@ while getopts "hc:b:" arg; do
         b)
             bs="$OPTARG"
             echo "Using block size of $bs"
+            ;;
+        i)
+            netcataddr="$OPTARG"
+            echo "Using different remote host for netcat: $netcataddr"
             ;;
         h)
             usage
@@ -56,6 +61,10 @@ fi
 
 if [[ $(( chunk % bs )) != 0 ]]; then
     echo 2>&1 "Warning: Chunk size is not a multiple of block size"
+fi
+
+if [[ ! -v netcataddr ]]; then
+    netcataddr="$desthost"
 fi
 
 # $state holds number of bytes already copied
@@ -94,7 +103,7 @@ while [ "$state" -lt "$total" ]; do
 
     # Spawn sender
     (set -x; dd if="$infile" bs="$bs" skip="$offset" count="$(( chunk / bs ))" status=progress \
-        | nc "$desthost" "$port") &
+        | nc "$netcataddr" "$port") &
     senderpid=$!
 
     # Wait for processes (if one of them fails, errexit will kill the script)
