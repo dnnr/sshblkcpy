@@ -48,7 +48,7 @@ infile="$2"
 desthost="$3"
 outfile="$4"
 
-if [[ $chunk < $bs ]]; then
+if [[ $chunk -lt $bs ]]; then
     echo 2>&1 "Error: Chunk size must not be less than block size ($bs)"
     exit 1
 fi
